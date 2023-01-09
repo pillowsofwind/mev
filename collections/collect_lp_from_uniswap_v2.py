@@ -2,7 +2,7 @@ import os
 import requests
 
 URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2"
-UNISWAPV2_FILE = os.path.join(os.path.dirname(__file__), "../data/uniswapv2_addr_list.csv")
+UNISWAPV2_FILE = os.path.join(os.path.dirname(__file__), "../data/uniswap_v2_addr_list.ctsv")
 
 
 def get_query(query):
@@ -39,7 +39,8 @@ def main():
     """
     if not os.path.exists(UNISWAPV2_FILE):
         with open(UNISWAPV2_FILE, "w") as f:
-            f.write("address,token0_address,token0_name,token0_symbol,token0_decimals,token0_price,token1_address,token1_name,token1_symbol,token1_decimals,token1_price,createdAtBlockNumber,createdAtTimestamp\n")
+            columns = ['address', 'token0_address', 'token0_name', 'token0_symbol', 'token0_decimals', 'token0_price', 'token1_address', 'token1_name', 'token1_symbol', 'token1_decimals', 'token1_price', 'createdAtBlockNumber', 'createdAtTimestamp']
+            f.write(",\t".join(columns) + "\n")
         max_createdAtTimestamp = 0
     else:
         with open(UNISWAPV2_FILE, "r") as f:
@@ -81,7 +82,7 @@ def main():
             max_createdAtTimestamp = max(max_createdAtTimestamp, int(createdAtTimestamp))
 
             with open(UNISWAPV2_FILE, "a") as f:
-                f.write(",".join([pair_address, token0_address, token0_name, token0_symbol, str(token0_decimals), str(token0_price), token1_address, token1_name, token1_symbol, str(token1_decimals), str(token1_price), str(createdAtBlockNumber), str(createdAtTimestamp)]) + "\n")
+                f.write(",\t".join([pair_address, token0_address, token0_name, token0_symbol, str(token0_decimals), str(token0_price), token1_address, token1_name, token1_symbol, str(token1_decimals), str(token1_price), str(createdAtBlockNumber), str(createdAtTimestamp)]) + "\n")
 
         print("max_createdAtTimestamp: ", max_createdAtTimestamp)
 
