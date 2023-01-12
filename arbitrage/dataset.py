@@ -35,7 +35,7 @@ for block_number, pair_address, reserve0, reserve1 in uniswap_v2_pairs_df[["bloc
         "address": pair_address,
         "token0": pair_details[pair_address]["token0"],
         "token1": pair_details[pair_address]["token1"],
-        "reserve0": int(reserve0 * 1e18),
-        "reserve1": int(reserve1 * 1e18)
+        "reserve0": int(reserve0 * pow(10, pair_details[pair_address]["token0"]["decimals"])),
+        "reserve1": int(reserve1 * pow(10, pair_details[pair_address]["token1"]["decimals"]))
     }
     uniswap_v2_pairs[block_number].append(pair)
