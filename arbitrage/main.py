@@ -5,7 +5,7 @@ from dfs import *
 import time
 
 
-def find_arb_in_a_block(block_number, tokenIn, tokenOut, maxHops):
+def find_arb_in_a_block(block_number, tokenIn, tokenOut, maxHops, maxFound=100):
     path = [tokenIn]
     pairs = uniswap_v2_pairs[block_number]
     current_pairs = []
@@ -13,7 +13,7 @@ def find_arb_in_a_block(block_number, tokenIn, tokenOut, maxHops):
 
     start_time = time.time()
 
-    trades = findArb(pairs, tokenIn, tokenOut, maxHops, current_pairs, path, best_trades)
+    trades = findArb(pairs, tokenIn, tokenOut, maxHops, current_pairs, path, best_trades, maxFound)
 
     end_time = time.time()
 
