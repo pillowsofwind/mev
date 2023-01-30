@@ -45,9 +45,11 @@ def dump_factory(factory_address):
         if w3.eth.get_code(token0_addr).hex() == "0x" or w3.eth.get_code(token1_addr).hex() == "0x":
             continue
 
+        reserves = pair_contract.functions.getReserves().call()
+
         item = [i, pair_addr]
         print(i, pair_addr, token0_addr, token1_addr)
-        for token_addr in [token0_addr, token1_addr]:
+        for token_index, token_addr in enumerate([token0_addr, token1_addr]):
             try:
                 token_contract = w3.eth.contract(address=token_addr, abi=ERC20_ABI)
                 token_name = token_contract.functions.name().call()
@@ -65,11 +67,11 @@ def dump_factory(factory_address):
                     print("error", token_addr)
                     continue
 
-            item += [token_addr, token_name, token_symbol, token_decimals]
+            item += [token_addr, token_name, token_symbol, token_decimals, reserves[token_index]]
 
         pairs.append(tuple(item))
 
-    pair_df = pd.DataFrame(pairs, columns=["index", "pair_addr", "token0_addr", "token0_name", "token0_symbol", "token0_decimals", "token1_addr", "token1_name", "token1_symbol", "token1_decimals"])
+    pair_df = pd.DataFrame(pairs, columns=["index", "address", "token0_address", "token0_name", "token0_symbol", "token0_decimals", "reserve0", "token1_address", "token1_name", "token1_symbol", "token1_decimals", "reserve1"])
 
     return pair_df
 

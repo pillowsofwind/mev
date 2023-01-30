@@ -1,14 +1,19 @@
 import json
 import os
+import time
 import pandas as pd
 import requests
 
+from web3 import Web3, HTTPProvider
+
+w3 = Web3(HTTPProvider("http://localhost:8545"))
+
 UNISWAPV2_FILE = os.path.join(os.path.dirname(__file__), "../data/uniswap_v2_addr_list.ctsv")
-UNISWAPV2_PAIRS_FILE = os.path.join(os.path.dirname(__file__), "../data/uniswap_v2_pairs_list.csv")
+UNISWAPV2_PAIRS_FILE = os.path.join(os.path.dirname(__file__), "../data/uniswap_v2_pairs_list_new.csv")
 
 URL = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2"
 
-STABLE_COINS = ["DAI", "USDC", "USDT"]
+STABLE_COINS = ["DAI", "USDC", "USDT", "BUSD"]
 
 RAW_QUERY  = """query MyQuery {
     pairs(first:LIMIT, where: {id_in: ADDR_LIST}, block: {number: BLOCK_NUMBER}) {
@@ -31,7 +36,7 @@ df = pd.read_csv(UNISWAPV2_FILE, sep=",\t")
 
 stable_coin_pairs = df[(df["token0_symbol"].isin(STABLE_COINS)) | (df["token1_symbol"].isin(STABLE_COINS))]
 
-sample_of_stable_coin_pairs = stable_coin_pairs.head(1000)
+sample_of_stable_coin_pairs = stable_coin_pairs.head(6000)
 
 symbols = set()
 
@@ -55,28 +60,40 @@ def query_from_uniswap_v2(addr_list, block_number, limit=1000):
     return result
 
 if not os.path.exists(UNISWAPV2_PAIRS_FILE):
-    os.remove(UNISWAPV2_PAIRS_FILE)
     with open(UNISWAPV2_PAIRS_FILE, "w") as f:
         f.write("blockNumber,pairAddress,reserve0,reserve1\n")
-    block_start_number = 16000000
+    block_start_number = 163926000
 else:
     df = pd.read_csv(UNISWAPV2_PAIRS_FILE)
     block_start_number = df["blockNumber"].max() + 1
 
-block_count = 10000
+count = 0
 
-for block_number in range(block_start_number, block_start_number + block_count):
-    for i in range(0, len(pairs_addresses), 1000):
-        upper_bound = min(i + 1000, len(pairs_addresses))
-        addr_list = pairs_addresses[i:upper_bound] 
-        result = query_from_uniswap_v2(addr_list, block_number)
+while True:
+    current_block_number = int(w3.eth.get_block_number())
 
-        for pair in result["data"]["pairs"]:
-            pair_address = pair["id"]
-            reserve0 = pair["reserve0"]
-            reserve1 = pair["reserve1"]
+    if current_block_number == block_start_number:
+        time.sleep(12)
+        continue
 
-            with open(UNISWAPV2_PAIRS_FILE, "a") as f:
-                f.write("{},{},{},{}\n".format(block_number, pair_address, reserve0, reserve1))
+    for block_number in range(block_start_number, current_block_number):
+        for i in range(0, len(pairs_addresses), 1000):
+            upper_bound = min(i + 1000, len(pairs_addresses))
+            addr_list = pairs_addresses[i:upper_bound] 
+            result = query_from_uniswap_v2(addr_list, block_number)
 
-    print("block_number: {}, i: {}, upper_bound: {}".format(block_number, i, upper_bound))
+            for pair in result["data"]["pairs"]:
+                pair_address = pair["id"]
+                reserve0 = pair["reserve0"]
+                reserve1 = pair["reserve1"]
+
+                with open(UNISWAPV2_PAIRS_FILE, "a") as f:
+                    f.write("{},{},{},{}\n".format(block_number, pair_address, reserve0, reserve1))
+
+        print("block_number: {}, i: {}, upper_bound: {}".format(block_number, i, upper_bound))
+
+    block_start_number = current_block_number
+
+    count += 1
+    if count >= 10000:
+        break
