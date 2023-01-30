@@ -44,7 +44,7 @@ with open(UNISWAP_V2_PAIR_ABI_PATH) as f:
     UNISWAP_V2_PAIR_ABI = json.load(f)
 
 
-STABLE_COINS = ["DAI", "USDC", "USDT", "BUSD"]
+STABLE_COINS = ["DAI", "USDC", "USDT", "BUSD", "TUSD"]
 TARGETS = STABLE_COINS + ["WETH"]
 
 uniswap_v2_df = pd.read_csv(UNISWAPV2_PAIRS_FILE)

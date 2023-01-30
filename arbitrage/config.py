@@ -12,6 +12,16 @@ STABLE_COINS = [
         "symbol": "USDT",
         "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
         "decimals": 6
+    },
+    {
+        "symbol": "BUSD",
+        "address": "0x4Fabb145d64652a948d72533023f6E7A623C7C53",
+        "decimals": 18
+    },
+    {
+        "symbol": "TUSD",
+        "address": "0x0000000000085d4780B73119b644AE5ecd22b376",
+        "decimals": 18
     }
 ]
 
