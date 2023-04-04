@@ -111,6 +111,7 @@ def get_pool_tokens(df,pool):
 
 
 # generate the graph adjacency matrix
+# dim=num_nodes*num_nodes
 def create_graph_adjacency_matrix(arbs,pool_info):
     t_s=time.time()
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
@@ -138,7 +139,8 @@ def create_graph_adjacency_matrix(arbs,pool_info):
     return adj_mat
 
 
-# generate graph signals (each node has an attributes vector) of the graph at a certain blocknumber
+# generate graph signals of the graph at a certain blocknumber
+# dim=num_nodes, each element is an attributes vector
 # an attribute vector looks like [onehot_token0,onehot_token1,volume_token0,volume_token1]
 # onehot_tokenx is the onehot vector representation of a token
 def generate_graph_signal(arbs,pools,blocknumber):
@@ -147,7 +149,14 @@ def generate_graph_signal(arbs,pools,blocknumber):
     df_pools=pd.read_csv(pools)
 
 
+# generate graph output (labels) 
+# mark arbitrage pools in a period [blocknumber, blocknumber+duration)
+# dim=num_nodes, each element is either 0 or 1 (an arbitrage path went through it)
+def generate_graph_output(arbs,pools,blocknumber,duration=50):
+
+
 get_cpmm_data('./one_day_arb.csv')
 # pools_to_pool_info('./pools.csv','pool_info.csv')
 create_graph_adjacency_matrix('./one_day_arb.csv','pool_info.csv')
 generate_graph_signal('./one_day_arb.csv','./pools.csv',16086270)
+generate_graph_output('./one_day_arb.csv','./pools.csv',16086270,30)
