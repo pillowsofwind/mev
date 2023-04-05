@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import time
+from tqdm import tqdm
 import math
 
 start_block_num = 16086234
@@ -25,7 +26,7 @@ def get_cpmm_data(arbs):
                 continue
             protocols.append(p.split('(')[1][:-1:])
         new_protocols = list(filter(lambda x: x in ['sush', 'usp2'], protocols))
-        if len(pools) == len(new_protocols):
+        if len(pools) == len(new_protocols): # this suggest the pool is a cpmm pool
             cpmm_txns.append(item)
             tokens = item['token_addresses'].split(' ') 
             for tok in tokens:
@@ -49,7 +50,7 @@ def pools_to_pool_info(pools,pool_info):
     outdf = pd.DataFrame(columns=['poolAddress','token addresses'])
 
     pools=[]
-    for item in records:
+    for item in tqdm(records):
         pool_addr=item['poolAddress'].lower()
         if pool_addr not in pools:
             pools.append(pool_addr)
@@ -103,7 +104,6 @@ def get_cpmm_token_list_from_arbs(arbs):
     return cpmm_tokens_addrs
     
 
-
 # get the one-hot representation of a token
 def get_token_onehot(gold_token_list,token):
     dim=len(gold_token_list)
@@ -124,7 +124,7 @@ def get_pool_tokens(df,pool):
 # generate the graph adjacency matrix
 # dim=num_pools*num_pools
 def create_graph_adjacency_matrix(arbs,pool_info):
-    t_s=time.time()
+    print('generating graph adjacency matrix...')
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
     num_pools=len(pool_addrs)
     print('number of nodes:{:d}'.format(num_pools))
@@ -134,8 +134,8 @@ def create_graph_adjacency_matrix(arbs,pool_info):
     # fill the adjacency matrix
     # print(pool_addrs[0])
     # print(get_pool_tokens(df_pool_info,pool_addrs[0]))
-    for i in range(num_pools):
-        print('\rprogress={:.3f}%'.format((i+1)*100/num_pools),end="")
+    for i in tqdm(range(num_pools)):
+        # print('\rprogress={:.3f}%'.format((i+1)*100/num_pools),end="")
         for j in range(i, num_pools):
             if i != j:
                 addrs_i=get_pool_tokens(df_pool_info,pool_addrs[i])
@@ -145,9 +145,8 @@ def create_graph_adjacency_matrix(arbs,pool_info):
                     graph_adj_mat[i][j]=1
                     graph_adj_mat[j][i]=1
 
-    t_e=time.time()
-    print('time cost generating matrix:%.4fs'%(t_e-t_s))
     return graph_adj_mat
+
 
 
 # generate graph input (signals) of the graph at a certain blocknumber
@@ -155,6 +154,7 @@ def create_graph_adjacency_matrix(arbs,pool_info):
 # an attribute vector looks like [onehot_token0,volume_token0,onehot_token1,volume_token1]
 # onehot_tokenx is the onehot vector representation of a token
 def generate_graph_input(arbs,pools,blocknumber):
+    print('generating graph input...')
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
     token_addrs=get_cpmm_token_list_from_arbs(arbs)
     # num_pools=len(pool_addrs)
@@ -162,24 +162,49 @@ def generate_graph_input(arbs,pools,blocknumber):
     df_pools=pd.read_csv(pools)
 
     graph_input=[]
-    for pool in pool_addrs:
+    for pool in tqdm(pool_addrs):
         pool_state_info=df_pools.loc[(df_pools['blockNumber']==blocknumber)&(df_pools['poolAddress']==pool)]
-        print('blockNumber=%d;poolAddress=%s'%(blocknumber,pool))
+        # print('blockNumber=%d;poolAddress=%s'%(blocknumber,pool))
         assert(pool_state_info.empty!=True)
+        # print(pool_state_info)
         token0=get_token_onehot(token_addrs,pool_state_info['token0Address'].values.astype(str))
         token1=get_token_onehot(token_addrs,pool_state_info['token1Address'].values.astype(str))
-        token0_volume=pool_state_info['balance0'].values.astype(int)
-        token1_volume=pool_state_info['balence1'].values.astype(int)
+        token0_volume=pool_state_info['balance0'].values.astype(float)
+        token1_volume=pool_state_info['balance1'].values.astype(float)
         pool_feature=[token0,token0_volume,token1,token1_volume]
         graph_input.append(pool_feature)
-    print('shape of the graph input:',graph_input.shape)
     return graph_input
 
 
 # generate graph output (labels) 
 # mark arbitrage pools in a period [blocknumber, blocknumber+duration)
 # dim=num_pools, each element is either 0 or 1 (an arbitrage path went through it)
-# def generate_graph_output(arbs,pools,blocknumber,duration=50):
+def generate_graph_output(arbs,pools,blocknumber,duration=50):
+    print('generating graph output...')
+    pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
+    df_arbs=pd.read_csv(arbs)
+
+    arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=blocknumber)].to_dict('records')
+
+    graph_output=np.zeros(len(pool_addrs))
+    for arb in arbs_start:
+        if arb['blockNumber']>=(blocknumber+duration):
+            break
+        pools=arb['pools'].split(' ')
+        protocols=[]
+        for p in pools:
+            if '(' not in p:
+                continue
+            protocols.append(p.split('(')[1][:-1:])
+        new_protocols=list(filter(lambda x: x in ['sush', 'usp2'], protocols))
+        if len(pools) == len(new_protocols):
+            p_addrs = arb['pool_addresses'].split(' ')
+            for p_addr in p_addrs: # all the pools that involve in thi arb
+                idx=pool_addrs.index(p_addr)
+                graph_output[idx]=1
+
+    print(graph_output)
+    return graph_output
 
 
 # df=pd.read_csv('./pools.csv')
@@ -193,7 +218,7 @@ def generate_graph_input(arbs,pools,blocknumber):
 
 get_cpmm_data('./one_day_arb.csv')
 # pools_to_pool_info('./pools.csv','pool_info.csv')
-# create_graph_adjacency_matrix('./one_day_arb.csv','pool_info.csv')
+create_graph_adjacency_matrix('./one_day_arb.csv','pool_info.csv')
 generate_graph_input('./one_day_arb.csv','./pools.csv',16086270)
-# generate_graph_output('./one_day_arb.csv','./pools.csv',16086270,30)
+generate_graph_output('./one_day_arb.csv','./pools.csv',16090709,30)
 
