@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import time
 from tqdm import tqdm
 import math
 
@@ -121,7 +120,10 @@ def get_pool_tokens(df,pool):
     return addrs
 
 
-# generate the graph adjacency matrix
+'''Methods below are used to get graph related data, return values must be ndarray'''
+
+
+# generate the graph adjacency matrix (sparse)
 # dim=num_pools*num_pools
 def create_graph_adjacency_matrix(arbs,pool_info):
     print('generating graph adjacency matrix...')
@@ -148,31 +150,65 @@ def create_graph_adjacency_matrix(arbs,pool_info):
     return graph_adj_mat
 
 
+# generate the graph in COO format (dense)
+# dim=2*num_edges (there is an edge if two pools have the same token)
+def generate_graph_coo(arbs,pool_info):
+    print('generating graph COO...')
+    pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
+    num_pools=len(pool_addrs)
+    print('number of nodes:{:d}'.format(num_pools))
+    df_pool_info = pd.read_csv(pool_info)
+
+    edge_start=[]
+    edge_end=[]
+
+    for i in tqdm(range(num_pools)):
+        # print('\rprogress={:.3f}%'.format((i+1)*100/num_pools),end="")
+        for j in range(i, num_pools):
+            if i != j:
+                addrs_i=get_pool_tokens(df_pool_info,pool_addrs[i])
+                addrs_j=get_pool_tokens(df_pool_info,pool_addrs[j])
+                tmp = np.intersect1d(addrs_i,addrs_j)
+                if len(tmp)>0: # there is an edge(i,j)
+                    edge_start.append(i)
+                    edge_end.append(j)
+                    edge_start.append(j)
+                    edge_end.append(i)
+    
+    graph_coo=(edge_start,)+(edge_end,)
+    graph_coo=np.array(graph_coo)
+    print('number of edges in graph: {:d}'.format(len(graph_coo[1])))
+    return graph_coo
+
 
 # generate graph input (signals) of the graph at a certain blocknumber
-# dim=num_pools, each element is an attributes vector
-# an attribute vector looks like [onehot_token0,volume_token0,onehot_token1,volume_token1]
+# dim=num_pools, each element is an feature vector
+# an feature vector looks like [onehot_token0,volume_token0,onehot_token1,volume_token1] with dim=2*(onehot_dim+1)
 # onehot_tokenx is the onehot vector representation of a token
 def generate_graph_input(arbs,pools,blocknumber):
-    print('generating graph input...')
+    # print('generating graph input...')
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
     token_addrs=get_cpmm_token_list_from_arbs(arbs)
-    # num_pools=len(pool_addrs)
-    # num_tokens=len(token_addrs) # dimension of the one-hot representation of a token
+    num_pools=len(pool_addrs)
+    num_tokens=len(token_addrs) # dimension of the one-hot representation of a token
     df_pools=pd.read_csv(pools)
 
-    graph_input=[]
-    for pool in tqdm(pool_addrs):
-        pool_state_info=df_pools.loc[(df_pools['blockNumber']==blocknumber)&(df_pools['poolAddress']==pool)]
-        # print('blockNumber=%d;poolAddress=%s'%(blocknumber,pool))
-        assert(pool_state_info.empty!=True)
-        # print(pool_state_info)
-        token0=get_token_onehot(token_addrs,pool_state_info['token0Address'].values.astype(str))
-        token1=get_token_onehot(token_addrs,pool_state_info['token1Address'].values.astype(str))
-        token0_volume=pool_state_info['balance0'].values.astype(float)
-        token1_volume=pool_state_info['balance1'].values.astype(float)
-        pool_feature=[token0,token0_volume,token1,token1_volume]
-        graph_input.append(pool_feature)
+    largest_volume=0
+    graph_input=np.zeros([num_pools,2*num_tokens+2],dtype=float)
+    pool_state_info=df_pools.loc[(df_pools['blockNumber']==blocknumber)].to_dict('records')
+    for pool_info in pool_state_info:
+        token0=get_token_onehot(token_addrs,pool_info['token0Address'])
+        token1=get_token_onehot(token_addrs,pool_info['token1Address'])
+        token0_volume=[float(pool_info['balance0'])]
+        token1_volume=[float(pool_info['balance1'])]
+        largest_volume=max(largest_volume,token0_volume[0],token1_volume[0])
+        graph_input[pool_addrs.index(pool_info['poolAddress'])]=np.concatenate((token0,token0_volume,token1,token1_volume))
+
+    for node_input in graph_input:
+        node_input[num_tokens]=node_input[num_tokens]/largest_volume
+        node_input[2*num_tokens+1]=node_input[2*num_tokens+1]/largest_volume
+    # print('shape of the graph input signal: ',graph_input.shape)
+    # print(graph_input)
     return graph_input
 
 
@@ -180,13 +216,13 @@ def generate_graph_input(arbs,pools,blocknumber):
 # mark arbitrage pools in a period [blocknumber, blocknumber+duration)
 # dim=num_pools, each element is either 0 or 1 (an arbitrage path went through it)
 def generate_graph_output(arbs,pools,blocknumber,duration=50):
-    print('generating graph output...')
+    # print('generating graph output...')
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
     df_arbs=pd.read_csv(arbs)
 
     arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=blocknumber)].to_dict('records')
 
-    graph_output=np.zeros(len(pool_addrs))
+    graph_output=np.zeros([len(pool_addrs),1],dtype=int)
     for arb in arbs_start:
         if arb['blockNumber']>=(blocknumber+duration):
             break
@@ -203,7 +239,7 @@ def generate_graph_output(arbs,pools,blocknumber,duration=50):
                 idx=pool_addrs.index(p_addr)
                 graph_output[idx]=1
 
-    print(graph_output)
+    # print(graph_output)
     return graph_output
 
 
@@ -215,10 +251,10 @@ def generate_graph_output(arbs,pools,blocknumber,duration=50):
 
 # df.to_csv('./pools.csv',index=False)
 
-
-get_cpmm_data('./one_day_arb.csv')
 # pools_to_pool_info('./pools.csv','pool_info.csv')
-create_graph_adjacency_matrix('./one_day_arb.csv','pool_info.csv')
-generate_graph_input('./one_day_arb.csv','./pools.csv',16086270)
-generate_graph_output('./one_day_arb.csv','./pools.csv',16090709,30)
 
+# get_cpmm_data('./one_day_arb.csv')
+# create_graph_adjacency_matrix('./one_day_arb.csv','pool_info.csv')
+# generate_graph_coo('./one_day_arb.csv','pool_info.csv')
+# generate_graph_input('./one_day_arb.csv','./pools.csv',16086270)
+# generate_graph_output('./one_day_arb.csv','./pools.csv',16090709,30)
