@@ -18,18 +18,21 @@ def test_cpmm_arb():
 
 # COO format of graph, represent the edges
 def get_edge_index():
-    graph_coo=carb.generate_graph_coo('../arb_data/one_day_arb.csv','../arb_data/pool_info.csv')
-    return torch.tensor(graph_coo,dtype=torch.long)
+    # graph_coo=carb.generate_graph_coo('../arb_data/one_day_arb.csv','../arb_data/pool_info.csv')
+    # return torch.tensor(graph_coo,dtype=torch.long)
+    return carb.generate_graph_coo('../arb_data/one_day_arb.csv','../arb_data/pool_info.csv')
 
 # get node features x (input)
 def get_x(blocknumber):
-    x=carb.generate_graph_input('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber)
-    return torch.tensor(x,dtype=torch.float)
+    # x=carb.generate_graph_input('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber)
+    # return torch.tensor(x,dtype=torch.float)
+    return carb.generate_graph_input('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber)
 
 # get node targets y (output)
 def get_y(blocknumber, period=50):
-    y=carb.generate_graph_output('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber,period)
-    return torch.tensor(y,dtype=torch.long)
+    # y=carb.generate_graph_output('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber,period)
+    # return torch.tensor(y,dtype=torch.long)
+    return carb.generate_graph_output('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber,period)
 
 
 
@@ -89,6 +92,6 @@ class MyOwnDataset(InMemoryDataset):
 
 # print(data)
 
-dataset=MyOwnDataset('dataset')
+# dataset=MyOwnDataset('dataset')
 # process data and save
-print('process finished!')
+# print('process finished!')
