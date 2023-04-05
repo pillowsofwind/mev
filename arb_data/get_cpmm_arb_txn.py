@@ -222,7 +222,7 @@ def generate_graph_output(arbs,pools,blocknumber,duration=50):
 
     arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=blocknumber)].to_dict('records')
 
-    graph_output=np.zeros([len(pool_addrs)],dtype=int)
+    graph_output=np.zeros([len(pool_addrs),1],dtype=int)
     for arb in arbs_start:
         if arb['blockNumber']>=(blocknumber+duration):
             break
