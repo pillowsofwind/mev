@@ -117,6 +117,7 @@ def get_token_onehot(gold_token_list,token):
 def get_pool_tokens(df,pool):
     assert(df.loc[(df['poolAddress'] == pool)].empty!=True)
     addrs=df.loc[(df['poolAddress'] == pool)]['token addresses'].values.astype(str)
+    addrs=addrs[0].split(' ')
     return addrs
 
 

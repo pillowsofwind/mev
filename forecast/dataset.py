@@ -10,6 +10,7 @@ from torch_geometric.data import Data
 from torch_geometric.data import InMemoryDataset
 from tqdm import tqdm
 
+
 def test_cpmm_arb():
     carb.get_cpmm_data('../arb_data/one_day_arb.csv')
     carb.generate_graph_coo('../arb_data/one_day_arb.csv','../arb_data/pool_info.csv')
@@ -46,7 +47,7 @@ class MyOwnDataset(InMemoryDataset):
     # return raw data file names
     @property
     def raw_file_names(self):
-        return ['./one_day_arb.csv']
+        return ['../arb_data/one_day_arb.csv']
 
     # return the name when saving the dataset files with method `process`
     @property
