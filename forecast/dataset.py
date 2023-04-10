@@ -24,16 +24,16 @@ def get_edge_index():
     return carb.generate_graph_coo('../arb_data/one_day_arb.csv','../arb_data/pool_info.csv')
 
 # get node features x (input)
-def get_x(blocknumber):
+def get_x(bn_start, bn_end, duration):
     # x=carb.generate_graph_input('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber)
     # return torch.tensor(x,dtype=torch.float)
-    return carb.generate_graph_input('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber)
+    return carb.generate_graph_inputs('../arb_data/one_day_arb.csv','../arb_data/pools.csv',bn_start, bn_end, duration)
 
 # get node targets y (output)
-def get_y(blocknumber, period=50):
+def get_y(bn_start, bn_end, duration):
     # y=carb.generate_graph_output('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber,period)
     # return torch.tensor(y,dtype=torch.long)
-    return carb.generate_graph_output('../arb_data/one_day_arb.csv','../arb_data/pools.csv',blocknumber,period)
+    return carb.generate_graph_outputs('../arb_data/one_day_arb.csv','../arb_data/pools.csv',bn_start, bn_end, duration)
 
 
 
@@ -64,16 +64,18 @@ class MyOwnDataset(InMemoryDataset):
     def process(self):
         
         # Read data into huge PyG `Data` list.
-        start_block_num = 16086234
-        end_block_num = 16093396
-        duration = 50
+        bn_start = 16086234
+        bn_end = 16093396
+        duration = 1
 
         data_list = []
 
-        graph_edges=get_edge_index()
+        data_graph=get_edge_index()
 
-        for bn in tqdm(range(start_block_num,end_block_num,duration)):
-            data = Data(edge_index=graph_edges,x=get_x(bn),y=get_y(bn,duration))
+        data_x=get_x(bn_start, bn_end, duration)
+        data_y=get_y(bn_start, bn_end, duration)
+        for i in tqdm(range(len(data_x))):
+            data = Data(edge_index=data_graph,x=data_x[i],y=data_y[i])
             data_list.append(data)
 
         if self.pre_filter is not None:

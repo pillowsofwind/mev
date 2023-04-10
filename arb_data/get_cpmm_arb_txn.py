@@ -186,62 +186,69 @@ def generate_graph_coo(arbs,pool_info):
 # dim=num_pools, each element is an feature vector
 # an feature vector looks like [onehot_token0,volume_token0,onehot_token1,volume_token1] with dim=2*(onehot_dim+1)
 # onehot_tokenx is the onehot vector representation of a token
-def generate_graph_input(arbs,pools,blocknumber):
-    # print('generating graph input...')
+def generate_graph_inputs(arbs,pools,bn_start,bn_end,duration):
+    print('generating graph inputs...')
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
     token_addrs=get_cpmm_token_list_from_arbs(arbs)
     num_pools=len(pool_addrs)
     num_tokens=len(token_addrs) # dimension of the one-hot representation of a token
     df_pools=pd.read_csv(pools)
 
-    largest_volume=0
-    graph_input=np.zeros([num_pools,2*num_tokens+2],dtype=float)
-    pool_state_info=df_pools.loc[(df_pools['blockNumber']==blocknumber)].to_dict('records')
-    for pool_info in pool_state_info:
-        token0=get_token_onehot(token_addrs,pool_info['token0Address'])
-        token1=get_token_onehot(token_addrs,pool_info['token1Address'])
-        token0_volume=[float(pool_info['balance0'])]
-        token1_volume=[float(pool_info['balance1'])]
-        largest_volume=max(largest_volume,token0_volume[0],token1_volume[0])
-        graph_input[pool_addrs.index(pool_info['poolAddress'])]=np.concatenate((token0,token0_volume,token1,token1_volume))
+    result = []
+    for bn in tqdm(range(bn_start,bn_end,duration)):
+        largest_volume=0
+        graph_input=np.zeros([num_pools,2*num_tokens+2],dtype=float)
+        pool_state_info=df_pools.loc[(df_pools['blockNumber']==bn)].to_dict('records')
+        for pool_info in pool_state_info:
+            token0=get_token_onehot(token_addrs,pool_info['token0Address'])
+            token1=get_token_onehot(token_addrs,pool_info['token1Address'])
+            token0_volume=[float(pool_info['balance0'])]
+            token1_volume=[float(pool_info['balance1'])]
+            largest_volume=max(largest_volume,token0_volume[0],token1_volume[0])
+            graph_input[pool_addrs.index(pool_info['poolAddress'])]=np.concatenate((token0,token0_volume,token1,token1_volume))
 
-    for node_input in graph_input:
-        node_input[num_tokens]=node_input[num_tokens]/largest_volume
-        node_input[2*num_tokens+1]=node_input[2*num_tokens+1]/largest_volume
-    # print('shape of the graph input signal: ',graph_input.shape)
-    # print(graph_input)
-    return graph_input
+        for node_input in graph_input:
+            node_input[num_tokens]=node_input[num_tokens]/largest_volume
+            node_input[2*num_tokens+1]=node_input[2*num_tokens+1]/largest_volume
+        # print('shape of the graph input signal: ',graph_input.shape)
+        # print(graph_input)
+        result.append(graph_input)
+    return result
 
 
 # generate graph output (labels) 
 # mark arbitrage pools in a period [blocknumber, blocknumber+duration)
 # dim=num_pools, each element is either 0 or 1 (an arbitrage path went through it)
-def generate_graph_output(arbs,pools,blocknumber,duration=50):
-    # print('generating graph output...')
+def generate_graph_outputs(arbs,pools,bn_start,bn_end,duration):
+
+    print('generating graph output...')
     pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
     df_arbs=pd.read_csv(arbs)
 
-    arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=blocknumber)].to_dict('records')
+    result = []
+    for bn in tqdm(range(bn_start,bn_end,duration)):
 
-    graph_output=np.zeros([len(pool_addrs),1],dtype=int)
-    for arb in arbs_start:
-        if arb['blockNumber']>=(blocknumber+duration):
-            break
-        pools=arb['pools'].split(' ')
-        protocols=[]
-        for p in pools:
-            if '(' not in p:
-                continue
-            protocols.append(p.split('(')[1][:-1:])
-        new_protocols=list(filter(lambda x: x in ['sush', 'usp2'], protocols))
-        if len(pools) == len(new_protocols):
-            p_addrs = arb['pool_addresses'].split(' ')
-            for p_addr in p_addrs: # all the pools that involve in thi arb
-                idx=pool_addrs.index(p_addr)
-                graph_output[idx]=1
+        arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=bn)].to_dict('records')
 
-    # print(graph_output)
-    return graph_output
+        graph_output=np.zeros([len(pool_addrs),1],dtype=int)
+        for arb in arbs_start:
+            if arb['blockNumber']>=(bn+duration):
+                break
+            pools=arb['pools'].split(' ')
+            protocols=[]
+            for p in pools:
+                if '(' not in p:
+                    continue
+                protocols.append(p.split('(')[1][:-1:])
+            new_protocols=list(filter(lambda x: x in ['sush', 'usp2'], protocols))
+            if len(pools) == len(new_protocols):
+                p_addrs = arb['pool_addresses'].split(' ')
+                for p_addr in p_addrs: # all the pools that involve in thi arb
+                    idx=pool_addrs.index(p_addr)
+                    graph_output[idx]=1
+        result.append(graph_output)
+
+    return result
 
 
 # df=pd.read_csv('./pools.csv')
