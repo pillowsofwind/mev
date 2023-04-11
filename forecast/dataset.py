@@ -35,7 +35,8 @@ def get_y(bn_start, bn_end, duration):
     # return torch.tensor(y,dtype=torch.long)
     return carb.generate_graph_outputs('../arb_data/one_day_arb.csv','../arb_data/pools.csv',bn_start, bn_end, duration)
 
-
+def get_xy(bn_start, bn_end):
+    return carb.generate_graph_inputs_outputs('../arb_data/one_day_arb.csv','../arb_data/pools.csv',bn_start, bn_end)
 
 class MyOwnDataset(InMemoryDataset):
     def __init__(self, root, transform=None, pre_transform=None, pre_filter=None):
@@ -72,8 +73,9 @@ class MyOwnDataset(InMemoryDataset):
 
         data_graph=get_edge_index()
 
-        data_x=get_x(bn_start, bn_end, duration)
-        data_y=get_y(bn_start, bn_end, duration)
+        # data_x=get_x(bn_start, bn_end, duration)
+        # data_y=get_y(bn_start, bn_end, duration)
+        data_x, data_y = get_xy(bn_start, bn_end)
         for i in tqdm(range(len(data_x))):
             data = Data(edge_index=data_graph,x=data_x[i],y=data_y[i])
             data_list.append(data)

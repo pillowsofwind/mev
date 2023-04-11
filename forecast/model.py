@@ -111,7 +111,7 @@ def round_tensor(t, decimal_places=3):
 
 model.train()
 
-for epoch in tqdm(range(10)):
+for epoch in tqdm(range(50)):
     loss = 0
     f1 = 0
     for time, snapshot in enumerate(train_dataset_snapshots):

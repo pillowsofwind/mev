@@ -251,6 +251,64 @@ def generate_graph_outputs(arbs,pools,bn_start,bn_end,duration):
     return result
 
 
+def generate_graph_inputs_outputs(arbs,pools,bn_start,bn_end):
+
+    pool_addrs=get_cpmm_pool_list_from_arbs(arbs)
+    token_addrs=get_cpmm_token_list_from_arbs(arbs)
+    num_pools=len(pool_addrs)
+    num_tokens=len(token_addrs) # dimension of the one-hot representation of a token
+    df_arbs=pd.read_csv(arbs)
+    df_pools=pd.read_csv(pools)
+
+    result_y = []
+    result_x=[]
+    for bn in tqdm(range(bn_start,bn_end)):
+
+        arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=bn)].to_dict('records')
+
+        graph_output=np.zeros([len(pool_addrs),1],dtype=int)
+        has_arb=False
+        for arb in arbs_start:
+            if arb['blockNumber']>=(bn):
+                break
+            pools=arb['pools'].split(' ')
+            protocols=[]
+            for p in pools:
+                if '(' not in p:
+                    continue
+                protocols.append(p.split('(')[1][:-1:])
+            new_protocols=list(filter(lambda x: x in ['sush', 'usp2'], protocols))
+            if len(pools) == len(new_protocols):
+                has_arb=True
+                p_addrs = arb['pool_addresses'].split(' ')
+                for p_addr in p_addrs: # all the pools that involve in thi arb
+                    idx=pool_addrs.index(p_addr)
+                    graph_output[idx]=1
+        
+        if has_arb:
+            largest_volume=0
+            graph_input=np.zeros([num_pools,2*num_tokens+2],dtype=float)
+            pool_state_info=df_pools.loc[(df_pools['blockNumber']==bn)].to_dict('records')
+            for pool_info in pool_state_info:
+                token0=get_token_onehot(token_addrs,pool_info['token0Address'])
+                token1=get_token_onehot(token_addrs,pool_info['token1Address'])
+                token0_volume=[float(pool_info['balance0'])]
+                token1_volume=[float(pool_info['balance1'])]
+                largest_volume=max(largest_volume,token0_volume[0],token1_volume[0])
+                graph_input[pool_addrs.index(pool_info['poolAddress'])]=np.concatenate((token0,token0_volume,token1,token1_volume))
+
+            for node_input in graph_input:
+                node_input[num_tokens]=node_input[num_tokens]/largest_volume
+                node_input[2*num_tokens+1]=node_input[2*num_tokens+1]/largest_volume
+            # print('shape of the graph input signal: ',graph_input.shape)
+            # print(graph_input)
+            result_x.append(graph_input)
+            result_y.append(graph_output)
+            
+    return result_x,result_y
+
+
+
 # df=pd.read_csv('./pools.csv')
 
 # df["poolAddress"] = df["poolAddress"].apply(lambda x: x.lower())
