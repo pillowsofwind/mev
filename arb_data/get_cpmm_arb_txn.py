@@ -217,7 +217,7 @@ def generate_graph_inputs(arbs,pools,bn_start,bn_end,duration):
 
 
 # generate graph output (labels) 
-# mark arbitrage pools in a period [blocknumber, blocknumber+duration)
+# mark arbitrage pools in a period (blocknumber, blocknumber+duration]
 # dim=num_pools, each element is either 0 or 1 (an arbitrage path went through it)
 def generate_graph_outputs(arbs,pools,bn_start,bn_end,duration):
 
@@ -228,11 +228,11 @@ def generate_graph_outputs(arbs,pools,bn_start,bn_end,duration):
     result = []
     for bn in tqdm(range(bn_start,bn_end,duration)):
 
-        arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=bn)].to_dict('records')
+        arbs_start=df_arbs.loc[(df_arbs['blockNumber']>bn)].to_dict('records')
 
         graph_output=np.zeros([len(pool_addrs),1],dtype=int)
         for arb in arbs_start:
-            if arb['blockNumber']>=(bn+duration):
+            if arb['blockNumber']>=(bn+duration+1):
                 break
             pools=arb['pools'].split(' ')
             protocols=[]
@@ -264,12 +264,12 @@ def generate_graph_inputs_outputs(arbs,pools,bn_start,bn_end):
     result_x=[]
     for bn in tqdm(range(bn_start,bn_end)):
 
-        arbs_start=df_arbs.loc[(df_arbs['blockNumber']>=bn)].to_dict('records')
+        arbs_start=df_arbs.loc[(df_arbs['blockNumber']>bn)].to_dict('records')
 
         graph_output=np.zeros([len(pool_addrs),1],dtype=int)
         has_arb=False
         for arb in arbs_start:
-            if arb['blockNumber']>=(bn):
+            if arb['blockNumber']>=(bn+2):
                 break
             pools=arb['pools'].split(' ')
             protocols=[]
@@ -279,6 +279,7 @@ def generate_graph_inputs_outputs(arbs,pools,bn_start,bn_end):
                 protocols.append(p.split('(')[1][:-1:])
             new_protocols=list(filter(lambda x: x in ['sush', 'usp2'], protocols))
             if len(pools) == len(new_protocols):
+                # print('hit')
                 has_arb=True
                 p_addrs = arb['pool_addresses'].split(' ')
                 for p_addr in p_addrs: # all the pools that involve in thi arb
@@ -298,13 +299,14 @@ def generate_graph_inputs_outputs(arbs,pools,bn_start,bn_end):
                 graph_input[pool_addrs.index(pool_info['poolAddress'])]=np.concatenate((token0,token0_volume,token1,token1_volume))
 
             for node_input in graph_input:
-                node_input[num_tokens]=node_input[num_tokens]/largest_volume
-                node_input[2*num_tokens+1]=node_input[2*num_tokens+1]/largest_volume
+                node_input[num_tokens]=math.log10(node_input[num_tokens])/math.log10(largest_volume)
+                node_input[2*num_tokens+1]=math.log10(node_input[2*num_tokens+1])/math.log10(largest_volume)
             # print('shape of the graph input signal: ',graph_input.shape)
             # print(graph_input)
             result_x.append(graph_input)
             result_y.append(graph_output)
-            
+
+    print(len(result_x))
     return result_x,result_y
 
 
@@ -324,3 +326,4 @@ def generate_graph_inputs_outputs(arbs,pools,bn_start,bn_end):
 # generate_graph_coo('./one_day_arb.csv','pool_info.csv')
 # generate_graph_input('./one_day_arb.csv','./pools.csv',16086270)
 # generate_graph_output('./one_day_arb.csv','./pools.csv',16090709,30)
+# generate_graph_inputs_outputs('./one_day_arb.csv','./pools.csv',16086234,16093396)

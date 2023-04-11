@@ -12,24 +12,25 @@ import random
 from sklearn.metrics import f1_score
 
 
-num_nodes = 489
+num_nodes = 307
+num_tokens = 157
 
 
 class RecurrentGCN(torch.nn.Module):
-    def __init__(self, node_features, filters):
+    def __init__(self, filters):
         super(RecurrentGCN, self).__init__()
         torch.manual_seed(1234567)
-        self.encode_linear=nn.Linear(314,4)
+        self.encode_linear=nn.Linear(num_tokens,4)
         self.recurrent = GConvGRU(10, filters, 2)
         self.linear = torch.nn.Linear(filters, 1)
 
     def forward(self, x, edge_index):
         # x = num_nodes * 630 (original features dim)
-        v0 = x[:,0:314]
-        v1 = x[:,315:629]
+        v0 = x[:,0:num_tokens]
+        v1 = x[:,num_tokens+1:2*num_tokens+1]
         v0 = self.encode_linear(v0)
         v1 = self.encode_linear(v1)
-        a = torch.cat([v0,x[:,314:315],v1,x[:,629:630]],dim=1)
+        a = torch.cat([v0,x[:,num_tokens:num_tokens+1],v1,x[:,2*num_tokens+1:2*num_tokens+2]],dim=1)
         h = self.recurrent(a, edge_index)
         h = F.relu(h)
         h = self.linear(h)
@@ -80,7 +81,7 @@ train_dataset,test_dataset=temporal_signal_split(dataset,train_ratio=0.5)
 # criterion = nn.BCELoss()
 criterion = BCEFocalLoss(alpha=0.25, gamma=2)
 
-model = RecurrentGCN(node_features=630, filters=32)
+model = RecurrentGCN(filters=32)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
