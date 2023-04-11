@@ -4,9 +4,7 @@ from dfs import *
 
 import time
 
-UNISWAPV2_PAIRS_FILE = "../data/all_uniswap_v2_data.csv"
-uniswap_v2_pairs = load_uniswap_v2_pairs(UNISWAPV2_PAIRS_FILE, ["USD"])
-
+uniswap_v2_pairs = load_uniswap_v2_pairs_v2("../arb_data/pools.csv")
 
 def find_arb_in_a_block(block_number, tokenIn, tokenOut, maxHops, maxFound=10):
     path = [tokenIn]
@@ -26,9 +24,14 @@ def find_arb_in_a_block(block_number, tokenIn, tokenOut, maxHops, maxFound=10):
 
 
 def main():
-    trades = find_arb_in_a_block(16516000, WETH, WETH, 3)
-    print(trades)
-
+    for i in range(16086234, 16093396+1):
+        for t in STABLE_COINS:
+            trades = find_arb_in_a_block(i, t, t, 3)
+            if len(trades) > 0 and trades[0]["p"] > 5:
+                print(i, t, trades)
+                break
+        if len(trades) > 0 and trades[0]["p"] > 5:
+            break
 
 if __name__ == "__main__":
     main()

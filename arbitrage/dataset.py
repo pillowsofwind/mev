@@ -2,7 +2,7 @@ import os
 import pandas as pd
 from collections import defaultdict
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "../data")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "../arb_data")
 UNISWAPV2_FILE = os.path.join(DATA_DIR, "uniswap_v2_addr_list.csv")
 UNISWAP_V2_DF = pd.read_csv(UNISWAPV2_FILE)
 SUSHISWAP_FILE = os.path.join(DATA_DIR, "sushiswap_addr_list.csv")
@@ -60,6 +60,32 @@ def load_uniswap_v2_pairs(path, filter_tokens=[]):
             "reserve0": int(reserve0),
             "reserve1": int(reserve1)
         }
+        uniswap_v2_pairs[block_number].append(pair)
+
+    return uniswap_v2_pairs
+
+
+def load_uniswap_v2_pairs_v2(path):
+    uniswap_v2_pairs_df = pd.read_csv(path)
+    uniswap_v2_pairs = defaultdict(list)
+
+    for block_number, pair_address, token0_address, token0_symbol, token1_address, token1_symbol, reserve0, reserve1 in uniswap_v2_pairs_df[["blockNumber", "poolAddress", "token0Address", "token0Symbol", "token1Address", "token1Symbol", "balance0", "balance1"]].values:
+        pair_address = pair_address.lower()
+
+        if pair_address not in PAIR_DETAILS:
+            continue
+
+        token0 = PAIR_DETAILS[pair_address]["token0"]
+        token1 = PAIR_DETAILS[pair_address]["token1"]
+
+        pair = {
+            "address": pair_address,
+            "token0": token0,
+            "token1": token1,
+            "reserve0": int(reserve0),
+            "reserve1": int(reserve1)
+        }
+
         uniswap_v2_pairs[block_number].append(pair)
 
     return uniswap_v2_pairs
